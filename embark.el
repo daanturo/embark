@@ -352,6 +352,10 @@ Note that `embark-act' can also be called from outside the
 minibuffer and this variable is irrelevant in that case."
   :type 'boolean)
 
+(defcustom embark-quit-other-actions t
+  "Should `embark-act' quit the minibuffer with an unrecognized action?"
+  :type 'boolean)
+
 (defcustom embark-default-action-overrides nil
   "Alist associating target types with overriding default actions.
 When the source of a target is minibuffer completion, the default
@@ -2031,14 +2035,17 @@ target."
                            (embark--orig-target target)
                          target)
                        (xor
+                        ;; reverse the quitting behavior
                         arg
                         (and embark-quit-after-action
-                             (member
-                              action
-                              (cl-remove-if-not
-                               #'commandp
-                               (cl-loop for (_ . cmd) in (embark--all-bindings keymap)
-                                        collect cmd))))))
+                             (or embark-quit-other-actions
+                                 (member
+                                  action
+                                  (cl-loop
+                                   for (_ . cmd) in (embark--all-bindings keymap)
+                                   collect cmd)))
+                             ;; (where-is-internal action keymap)
+                             )))
                     (user-error
                      (funcall (if repeat #'message #'user-error)
                               "%s" (cadr err))))
