@@ -1998,16 +1998,14 @@ target."
     (unwind-protect
         (while
             (let* ((target (car targets))
+                   (keymap (let ((embark-default-action-overrides
+                                  (if default-done
+                                      `((t . ,default-done))
+                                    embark-default-action-overrides)))
+                             (embark--action-keymap (plist-get target :type)
+                                                    (cdr targets))))
                    (action
-                    (or (embark--prompt
-                         indicators
-                         (let ((embark-default-action-overrides
-                                (if default-done
-                                    `((t . ,default-done))
-                                  embark-default-action-overrides)))
-                           (embark--action-keymap (plist-get target :type)
-                                                  (cdr targets)))
-                         targets)
+                    (or (embark--prompt indicators keymap targets)
                         (user-error "Canceled")))
                    (default-action (or default-done
                                        (embark--default-action
@@ -2032,7 +2030,15 @@ target."
                                 (eq action embark--command))
                            (embark--orig-target target)
                          target)
-                       (if embark-quit-after-action (not arg) arg))
+                       (xor
+                        arg
+                        (and embark-quit-after-action
+                             (member
+                              action
+                              (cl-remove-if-not
+                               #'commandp
+                               (cl-loop for (_ . cmd) in (embark--all-bindings keymap)
+                                        collect cmd))))))
                     (user-error
                      (funcall (if repeat #'message #'user-error)
                               "%s" (cadr err))))
